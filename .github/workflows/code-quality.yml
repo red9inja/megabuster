@@ -7,7 +7,7 @@ on:
 
 jobs:
   code-quality:
-    runs-on: self-hosted  # Self-hosted runner use hoga (52.64.172.171)
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
     
     steps:
       - name: Checkout Code
@@ -22,29 +22,12 @@ jobs:
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Verify PHPStan Exists
+      - name: Ensure PHPStan Cache Directory is Clean
         run: |
-          if [ ! -f vendor/bin/phpstan ]; then
-            echo "PHPStan not found! Installing..."
-            composer require --dev phpstan/phpstan
+          if [ -d "/tmp/phpstan" ]; then
+            echo "Clearing PHPStan cache..."
+            rm -rf /tmp/phpstan
           fi
-
-      - name: Verify Pint Exists
-        run: |
-          if [ ! -f vendor/bin/pint ]; then
-            echo "Pint not found! Installing..."
-            composer require --dev laravel/pint
-          fi
-
-      - name: Verify PHP_CodeSniffer Exists
-        run: |
-          if [ ! -f vendor/bin/phpcs ]; then
-            echo "PHP_CodeSniffer not found! Installing..."
-            composer require --dev squizlabs/php_codesniffer
-          fi
-
-      - name: List Vendor Bin Contents
-        run: ls -la vendor/bin
 
       - name: Run PHPStan (Static Analysis)
         run: php vendor/bin/phpstan analyse --memory-limit=512M
@@ -57,6 +40,7 @@ jobs:
 
       - name: Install Mail Utilities (For Ubuntu/Debian)
         run: sudo apt-get update && sudo apt-get install -y mailutils
+        if: runner.os == 'Linux'
 
       - name: Notify GitHub Admin on Failure
         if: failure()
