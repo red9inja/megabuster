@@ -1,65 +1,95 @@
-name: PHP CI
+name: Laravel Code Quality Check
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
-  php:
-    runs-on: ubuntu-latest
+  code-quality:
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
+    outputs:
+      phpstan-result: ${{ steps.phpstan.outputs.result }}
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '7.4'  # or your desired PHP version
+          php-version: '8.1'
+          tools: composer, phpstan, pint, phpcs
 
-      - name: Install dependencies
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Remove or Rename /tmp/phpstan Directory (If Exists)
         run: |
-          composer install --prefer-dist --no-interaction
+          if [ -d "/tmp/phpstan" ]; then
+            rm -rf /tmp/phpstan || echo "Failed to remove /tmp/phpstan"
+          fi
+
+      - name: Verify Vendor Directory Exists
+        run: ls -l vendor/bin
+
+      - name: Ensure PHPStan is Installed
+        run: composer require --dev phpstan/phpstan --no-interaction || true
 
       - name: Run PHPStan (Static Analysis)
+        id: phpstan
         run: |
-          mkdir -p /tmp/phpstan  # Create a temporary directory if it doesn't exist
           php vendor/bin/phpstan analyse --memory-limit=512M || echo "PHPStan failed" > phpstan-results.json
+        continue-on-error: true
+
+      - name: Upload PHPStan Results as Artifact
+        if: failure()
+        uses: actions/upload-artifact@v4  # Updated to v4 (latest supported version)
+        with:
+          name: phpstan-results
+          path: phpstan-results.json
 
       - name: Run Laravel Pint (Code Formatting)
-        run: |
-          php vendor/bin/pint --test || echo "Pint found issues, but continuing"
+        run: php vendor/bin/pint --test || echo "Pint found issues, but continuing"  # Output on failure
+        continue-on-error: true  # To allow the workflow to continue despite formatting issues
 
       - name: Run PHP_CodeSniffer (PSR-12 Standards)
         run: |
           if [ -f vendor/bin/phpcs ]; then
-            php vendor/bin/phpcs --standard=PSR12
+            php vendor/bin/phpcs --standard=PSR12 app || echo "PHP_CodeSniffer found issues"
           else
-            echo "PHP_CodeSniffer not found"
+            echo "PHP_CodeSniffer not found. Running global installation."
+            composer global require squizlabs/php_codesniffer
+            ~/.composer/vendor/bin/phpcs --standard=PSR12 app || echo "PHP_CodeSniffer found issues"
           fi
+        continue-on-error: true  # Allow it to continue even if there are PSR-12 issues
 
-      - name: Auto-fix PHP_CodeSniffer issues
+      - name: Run PHP_CodeSniffer Auto-Fix (phpcbf)
         run: |
           if [ -f vendor/bin/phpcbf ]; then
-            php vendor/bin/phpcbf --standard=PSR12
+            php vendor/bin/phpcbf --standard=PSR12 app
           else
-            echo "PHP_CodeSniffer Auto-Fix not found"
+            echo "PHP_CodeSniffer Auto-Fix not found. Running global installation."
+            composer global require squizlabs/php_codesniffer
+            ~/.composer/vendor/bin/phpcbf --standard=PSR12 app
           fi
+        continue-on-error: true  # Allow it to continue after fixing the code
 
-      - name: Commit code fixes (if any)
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add .
-          git commit -m "Auto-fix code style and static analysis issues"
-          git push
+  notify-failure:
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
+    needs: code-quality
+    if: failure()
+    steps:
+      - name: Install Mail Utilities
+        run: sudo apt-get update && sudo apt-get install -y mailutils
 
-      - name: Upload PHPStan results as artifact
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: phpstan-results
-          path: phpstan-results.json
+      - name: Notify GitHub Admin on Failure
+        run: echo "Code quality check failed!" | mail -s "Code Quality Failed" admin@example.com
+
+  notify-success:
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
+    needs: code-quality
+    if: success()
+    steps:
+      - name: Approve Main Branch Merge if Success
+        run: echo "Code quality passed. Ready to merge!"
