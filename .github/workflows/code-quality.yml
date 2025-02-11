@@ -19,18 +19,20 @@ jobs:
           php-version: '8.1'
           tools: composer, phpstan, pint, phpcs
 
+      - name: Verify Composer is Installed
+        run: composer --version
+
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+        
+      - name: Verify Vendor Directory Exists
+        run: ls -l vendor/bin
 
-      - name: Ensure PHPStan Cache Directory is Clean
-        run: |
-          if [ -d "/tmp/phpstan" ]; then
-            echo "Clearing PHPStan cache..."
-            rm -rf /tmp/phpstan
-          fi
+      - name: Ensure PHPStan is Installed
+        run: composer require --dev phpstan/phpstan --no-interaction || true
 
       - name: Run PHPStan (Static Analysis)
-        run: php vendor/bin/phpstan analyse --memory-limit=512M
+        run: php vendor/bin/phpstan analyse --memory-limit=512M || (echo "PHPStan failed. Trying reinstallation..." && composer require --dev phpstan/phpstan --no-interaction && php vendor/bin/phpstan analyse --memory-limit=512M)
 
       - name: Run Laravel Pint (Code Formatting)
         run: php vendor/bin/pint --test
