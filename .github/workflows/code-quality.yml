@@ -22,14 +22,41 @@ jobs:
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Verify PHPStan Exists
+        run: |
+          if [ ! -f vendor/bin/phpstan ]; then
+            echo "PHPStan not found! Installing..."
+            composer require --dev phpstan/phpstan
+          fi
+
+      - name: Verify Pint Exists
+        run: |
+          if [ ! -f vendor/bin/pint ]; then
+            echo "Pint not found! Installing..."
+            composer require --dev laravel/pint
+          fi
+
+      - name: Verify PHP_CodeSniffer Exists
+        run: |
+          if [ ! -f vendor/bin/phpcs ]; then
+            echo "PHP_CodeSniffer not found! Installing..."
+            composer require --dev squizlabs/php_codesniffer
+          fi
+
+      - name: List Vendor Bin Contents
+        run: ls -la vendor/bin
+
       - name: Run PHPStan (Static Analysis)
-        run: vendor/bin/phpstan analyse --memory-limit=512M
+        run: php vendor/bin/phpstan analyse --memory-limit=512M
 
       - name: Run Laravel Pint (Code Formatting)
-        run: vendor/bin/pint --test
+        run: php vendor/bin/pint --test
 
       - name: Run PHP_CodeSniffer (PSR-12 Standards)
-        run: vendor/bin/phpcs --standard=PSR12 app
+        run: php vendor/bin/phpcs --standard=PSR12 app
+
+      - name: Install Mail Utilities (For Ubuntu/Debian)
+        run: sudo apt-get update && sudo apt-get install -y mailutils
 
       - name: Notify GitHub Admin on Failure
         if: failure()
