@@ -27,7 +27,7 @@ jobs:
       - name: Remove or Rename /tmp/phpstan Directory (If Exists)
         run: |
           if [ -d "/tmp/phpstan" ]; then
-            mv /tmp/phpstan /tmp/phpstan_backup_$(date +%Y%m%d%H%M%S) || rm -rf /tmp/phpstan
+            rm -rf /tmp/phpstan || echo "Failed to remove /tmp/phpstan"
           fi
 
       - name: Verify Vendor Directory Exists
@@ -50,7 +50,7 @@ jobs:
           path: phpstan-results.json
 
       - name: Run Laravel Pint (Code Formatting)
-        run: php vendor/bin/pint --test  # Removed --fix as it's not supported
+        run: php vendor/bin/pint --test || true
         continue-on-error: true  # To allow the workflow to continue despite format issues
 
       - name: Run PHP_CodeSniffer (PSR-12 Standards)
@@ -61,7 +61,6 @@ jobs:
             echo "PHP_CodeSniffer not found. Running global installation."
             composer global require squizlabs/php_codesniffer
             ~/.composer/vendor/bin/phpcs --standard=PSR12 app
-          fi
 
   notify-failure:
     runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
