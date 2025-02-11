@@ -12,11 +12,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up PHP
+      - name: Set up PHP 8.1
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.0'  # Specify PHP version
-          extensions: mbstring, xml, ctype, json, bcmath, curl, fileinfo
+          php-version: '8.1'  # PHP 8.1 use hoga
+          extensions: mbstring, xml, ctype, json, bcmath, curl, fileinfo, intl, gd, zip
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-progress --no-suggest --optimize-autoloader
@@ -32,6 +32,8 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@52.64.175.187 << 'EOF'
+            sudo apt update
+            sudo apt install -y php8.1 php8.1-mbstring php8.1-xml php8.1-ctype php8.1-json php8.1-bcmath php8.1-curl php8.1-fileinfo php8.1-intl php8.1-gd php8.1-zip composer git unzip
             cd /path/to/your/app
             git pull origin main
             composer install --no-interaction --prefer-dist --optimize-autoloader
