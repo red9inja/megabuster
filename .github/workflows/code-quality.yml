@@ -50,11 +50,18 @@ jobs:
           path: phpstan-results.json
 
       - name: Run Laravel Pint (Code Formatting)
-        run: php vendor/bin/pint --test --fix
+        run: php vendor/bin/pint --test  # Removed --fix as it's not supported
         continue-on-error: true  # To allow the workflow to continue despite format issues
 
       - name: Run PHP_CodeSniffer (PSR-12 Standards)
-        run: php vendor/bin/phpcs --standard=PSR12 app
+        run: |
+          if [ -f vendor/bin/phpcs ]; then
+            php vendor/bin/phpcs --standard=PSR12 app
+          else
+            echo "PHP_CodeSniffer not found. Running global installation."
+            composer global require squizlabs/php_codesniffer
+            ~/.composer/vendor/bin/phpcs --standard=PSR12 app
+          fi
 
   notify-failure:
     runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
