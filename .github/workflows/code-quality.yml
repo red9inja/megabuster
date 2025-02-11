@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload PHPStan Results as Artifact
         if: failure()
-        uses: actions/upload-artifact@v2  # Updated to v2
+        uses: actions/upload-artifact@v3  # Updated to v3
         with:
           name: phpstan-results
           path: phpstan-results.json
@@ -61,8 +61,14 @@ jobs:
     if: failure()
     steps:
       - name: Install Mail Utilities
-        run: sudo apt-get update && sudo apt-get install -y mailutils
-
+        run: |
+          # Wait for apt-get lock to be released if it's in use
+          while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+            echo "Waiting for apt lock to be released...";
+            sleep 2;
+          done
+          sudo apt-get update && sudo apt-get install -y mailutils
+          
       - name: Notify GitHub Admin on Failure
         run: echo "Code quality check failed!" | mail -s "Code Quality Failed" admin@example.com
 
