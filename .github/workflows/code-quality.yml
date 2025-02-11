@@ -1,0 +1,75 @@
+name: Laravel Code Quality Check
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  code-quality:
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
+    outputs:
+      phpstan-result: ${{ steps.phpstan.outputs.result }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer, phpstan, pint, phpcs
+
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Remove or Rename /tmp/phpstan Directory (If Exists)
+        run: |
+          if [ -d "/tmp/phpstan" ]; then
+            mv /tmp/phpstan /tmp/phpstan_backup_$(date +%Y%m%d%H%M%S) || rm -rf /tmp/phpstan
+          fi
+
+      - name: Verify Vendor Directory Exists
+        run: ls -l vendor/bin
+
+      - name: Ensure PHPStan is Installed
+        run: composer require --dev phpstan/phpstan --no-interaction || true
+
+      - name: Run PHPStan (Static Analysis)
+        id: phpstan
+        run: |
+          php vendor/bin/phpstan analyse --memory-limit=512M || echo "PHPStan failed" > phpstan-results.json
+        continue-on-error: true
+
+      - name: Upload PHPStan Results as Artifact
+        if: failure()
+        uses: actions/upload-artifact@v2  # Updated to v2
+        with:
+          name: phpstan-results
+          path: phpstan-results.json
+
+      - name: Run Laravel Pint (Code Formatting)
+        run: php vendor/bin/pint --test
+
+      - name: Run PHP_CodeSniffer (PSR-12 Standards)
+        run: php vendor/bin/phpcs --standard=PSR12 app
+
+  notify-failure:
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
+    needs: code-quality
+    if: failure()
+    steps:
+      - name: Install Mail Utilities
+        run: sudo apt-get update && sudo apt-get install -y mailutils
+
+      - name: Notify GitHub Admin on Failure
+        run: echo "Code quality check failed!" | mail -s "Code Quality Failed" admin@example.com
+
+  notify-success:
+    runs-on: self-hosted  # Self-hosted runner (52.64.172.171)
+    needs: code-quality
+    if: success()
+    steps:
+      - name: Approve Main Branch Merge if Success
+        run: echo "Code quality passed. Ready to merge!"
