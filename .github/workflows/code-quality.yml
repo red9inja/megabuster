@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload PHPStan Results as Artifact
         if: failure()
-        uses: actions/upload-artifact@v2  # Updated to v2
+        uses: actions/upload-artifact@v3  # Updated to v3
         with:
           name: phpstan-results
           path: phpstan-results.json
