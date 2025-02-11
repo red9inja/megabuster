@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload PHPStan Results as Artifact
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4  # Updated to v4 (latest supported version)
         with:
           name: phpstan-results
           path: phpstan-results.json
@@ -91,21 +91,5 @@ jobs:
     needs: code-quality
     if: success()
     steps:
-      - name: Check if Release Branch Exists
-        run: |
-          git fetch
-          if git rev-parse --verify release; then
-            echo "Release branch exists, updating..."
-            git checkout release
-            git merge main --no-ff -m "Merging latest changes from main into release"
-          else
-            echo "Release branch doesn't exist, creating a new one..."
-            git checkout -b release
-            git push https://github.com/${{ github.repository }}.git release
-          fi
-
-      - name: Push Changes to Release Branch
-        run: |
-          git push https://github.com/${{ github.repository }}.git release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Approve Main Branch Merge if Success
+        run: echo "Code quality passed. Ready to merge!"
