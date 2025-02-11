@@ -101,9 +101,11 @@ jobs:
           else
             echo "Release branch doesn't exist, creating a new one..."
             git checkout -b release
-            git push origin release
+            git push https://github.com/${{ github.repository }}.git release
           fi
 
       - name: Push Changes to Release Branch
         run: |
-          git push origin release
+          git push https://github.com/${{ github.repository }}.git release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
