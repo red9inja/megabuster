@@ -1,70 +1,82 @@
 name: Laravel Code Quality Check
 
-on:  
-  push:  
-    branches: [ main, develop ]  
-  pull_request:  
-    branches: [ main, develop ]  
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
 
-jobs:  
-  quality-check:  
-    runs-on: self-hosted  
+jobs:
+  quality-check:
+    runs-on: self-hosted
 
-    steps:  
-      - name: 🛠 Checkout Repository  
-        uses: actions/checkout@v4  
+    steps:
+      - name: 🛠 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: 🏗️ Install Required Packages  
-        run: |  
-          sudo apt update  
-          sudo apt install -y php8.1 php8.1-cli php8.1-mbstring php8.1-xml php8.1-bcmath php8.1-curl php8.1-zip unzip git curl mysql-server  
+      - name: 🏗️ Install Required Packages
+        run: |
+          sudo apt update
+          sudo apt install -y php8.1 php8.1-cli php8.1-mbstring php8.1-xml php8.1-bcmath php8.1-curl php8.1-zip unzip git curl mysql-server
 
-      - name: 🔧 Setup MySQL Database  
-        run: |  
-          sudo systemctl start mysql  
-          sudo mysql -e "CREATE DATABASE laravel_test;"  
-          sudo mysql -e "CREATE USER 'laravel'@'localhost' IDENTIFIED BY 'secret';"  
-          sudo mysql -e "GRANT ALL PRIVILEGES ON laravel_test.* TO 'laravel'@'localhost';"  
-          sudo mysql -e "FLUSH PRIVILEGES;"  
+      - name: 🔧 Setup MySQL Database
+        run: |
+          sudo systemctl start mysql
+          sudo mysql -e "CREATE DATABASE laravel_test;"
+          sudo mysql -e "CREATE USER 'laravel'@'localhost' IDENTIFIED BY 'secret';"
+          sudo mysql -e "GRANT ALL PRIVILEGES ON laravel_test.* TO 'laravel'@'localhost';"
+          sudo mysql -e "FLUSH PRIVILEGES;"
 
-      - name: 📄 Create .env File  
-        run: |  
-          cp .env.example .env  
-          echo "DB_CONNECTION=mysql" >> .env  
-          echo "DB_HOST=127.0.0.1" >> .env  
-          echo "DB_PORT=3306" >> .env  
-          echo "DB_DATABASE=laravel_test" >> .env  
-          echo "DB_USERNAME=laravel" >> .env  
-          echo "DB_PASSWORD=secret" >> .env  
+      - name: 📄 Create .env File
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            echo "⚠️ .env.example not found! Creating default .env file..."
+            cat <<EOT >> .env
+            APP_NAME=Laravel
+            APP_ENV=local
+            APP_KEY=
+            APP_DEBUG=true
+            APP_URL=http://localhost
+            LOG_CHANNEL=stack
+            DB_CONNECTION=mysql
+            DB_HOST=127.0.0.1
+            DB_PORT=3306
+            DB_DATABASE=laravel_test
+            DB_USERNAME=laravel
+            DB_PASSWORD=secret
+            EOT
+          fi
 
-      - name: 🔄 Install Composer Dependencies  
-        run: |  
-          curl -sS https://getcomposer.org/installer | php  
-          sudo mv composer.phar /usr/local/bin/composer  
-          composer install --no-interaction --prefer-dist  
+      - name: 🔄 Install Composer Dependencies
+        run: |
+          curl -sS https://getcomposer.org/installer | php
+          sudo mv composer.phar /usr/local/bin/composer
+          composer install --no-interaction --prefer-dist
 
-      - name: ⚙️ Generate Application Key  
-        run: php artisan key:generate  
+      - name: ⚙️ Generate Application Key
+        run: php artisan key:generate
 
-      - name: 🚀 Run Migrations  
-        run: php artisan migrate --force  
+      - name: 🚀 Run Migrations
+        run: php artisan migrate --force
 
-      - name: 🔍 Run PHPStan Analysis  
-        run: |  
-          composer require --dev phpstan/phpstan  
-          ./vendor/bin/phpstan analyse --level=max  
+      - name: 🔍 Run PHPStan Analysis
+        run: |
+          composer require --dev phpstan/phpstan
+          ./vendor/bin/phpstan analyse --level=max
 
-      - name: 🎨 Run Laravel Pint (Code Formatting)  
-        run: |  
-          composer require laravel/pint --dev  
-          ./vendor/bin/pint  
+      - name: 🎨 Run Laravel Pint (Code Formatting)
+        run: |
+          composer require laravel/pint --dev
+          ./vendor/bin/pint
 
-      - name: 🔒 Security Vulnerability Check  
-        run: |  
-          composer require --dev enlightn/security-checker  
-          ./vendor/bin/security-checker security:check  
+      - name: 🔒 Security Vulnerability Check
+        run: |
+          composer require --dev enlightn/security-checker
+          ./vendor/bin/security-checker security:check
 
-      - name: 🏁 Laravel Route List & Cache Clear  
-        run: |  
-          php artisan route:list --sort=uri  
-          php artisan cache:clear  
+      - name: 🏁 Laravel Route List & Cache Clear
+        run: |
+          php artisan route:list --sort=uri
+          php artisan cache:clear
