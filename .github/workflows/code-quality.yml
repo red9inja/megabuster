@@ -25,6 +25,12 @@ jobs:
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
         
+      - name: Remove or Rename /tmp/phpstan Directory (If Exists)
+        run: |
+          if [ -d "/tmp/phpstan" ]; then
+            mv /tmp/phpstan /tmp/phpstan_backup_$(date +%Y%m%d%H%M%S) || rm -rf /tmp/phpstan
+          fi
+
       - name: Verify Vendor Directory Exists
         run: ls -l vendor/bin
 
