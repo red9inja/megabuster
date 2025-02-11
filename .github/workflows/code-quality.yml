@@ -1,40 +1,30 @@
-name: Laravel Code Quality Check
+name: Code Quality Check
 
-on:
-  push:
-    branches:
-      - main
+on: [push, pull_request]
 
 jobs:
-  code-quality:
-    runs-on: self-hosted  # Self-hosted runner use hoga (52.64.172.171)
-    
+  code_quality:
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
-          tools: composer, phpstan, pint, phpcs
+          php-version: 8.1
+          extensions: gd, mbstring, pdo, zip, xml, curl
+          tools: composer
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run PHPStan (Static Analysis)
-        run: vendor/bin/phpstan analyse --memory-limit=512M
+        run: vendor/bin/phpstan analyse --level=max src/
 
       - name: Run Laravel Pint (Code Formatting)
         run: vendor/bin/pint --test
 
       - name: Run PHP_CodeSniffer (PSR-12 Standards)
-        run: vendor/bin/phpcs --standard=PSR12 app
-
-      - name: Notify GitHub Admin on Failure
-        if: failure()
-        run: echo "Code quality check failed!" | mail -s "Code Quality Failed" admin@example.com
-
-      - name: Approve Main Branch Merge if Success
-        if: success()
-        run: echo "Code quality passed. Ready to merge!"
+        run: vendor/bin/phpcs --standard=PSR12 src/
