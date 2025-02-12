@@ -1,0 +1,42 @@
+name: CI
+
+on: push
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    container:
+      image: kirschbaumdevelopment/laravel-test-runner:8.1
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test
+        ports:
+          - 33306:3306
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Install PHP Extensions & Dependencies
+        run: |
+          docker-php-ext-install pdo pdo_mysql
+          composer install --no-scripts --no-interaction --prefer-dist
+
+      - name: Prepare Laravel Environment
+        run: |
+          cp .env.ci .env
+          php artisan key:generate
+          php artisan config:clear
+          php artisan migrate --force
+          php artisan db:seed --force
+
+      - name: Run PHPUnit Tests
+        run: |
+          vendor/bin/phpunit --testdox --colors=always

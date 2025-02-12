@@ -1,0 +1,74 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Sirf 'main' branch pe push hone pe deploy hoga
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    container:
+      image: kirschbaumdevelopment/laravel-test-runner:8.1
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test
+        ports:
+          - 33306:3306
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Install System Dependencies
+        run: |
+          apt-get update
+          apt-get install -y libpng-dev libjpeg-dev libfreetype6-dev zip unzip git
+
+      - name: Install PHP Extensions
+        run: |
+          docker-php-ext-install pdo pdo_mysql  # ✅ Fixed
+
+      - name: Install Composer Dependencies
+        run: composer install --no-scripts --no-interaction --prefer-dist
+
+      - name: Prepare Laravel Environment
+        run: |
+          cp .env.ci .env
+          php artisan key:generate
+          php artisan config:clear
+          php artisan migrate --force
+          php artisan db:seed --force
+
+      - name: Run Pest Tests
+        run: vendor/bin/pest --testdox --colors=always
+
+  deploy:
+    needs: phpunit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/myproject  # ⚡ Apna project path update karein
+            git pull origin main  # ⚡ Latest code pull karein
+            composer install --no-interaction --prefer-dist --no-dev
+            php artisan migrate --force  # ⚡ Database update bina data loss ke
+            php artisan cache:clear
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
+            php artisan queue:restart
+            systemctl restart apache2 || systemctl restart nginx

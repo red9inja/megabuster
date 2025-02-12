@@ -1,0 +1,95 @@
+name: Self-Hosted Laravel Full Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup-test-clean:
+    runs-on: self-hosted  # Self-hosted runner use hoga
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Required Packages
+        run: |
+          echo "🔄 Updating system & installing required packages..."
+          sudo apt update
+          sudo apt install -y apache2 mysql-server php libapache2-mod-php php-mysql php-xml php-mbstring php-bcmath php-curl php-tokenizer php-zip php-pcov php-cli unzip curl git composer
+
+      - name: Start Apache & MySQL
+        run: |
+          echo "🚀 Starting Apache & MySQL..."
+          sudo systemctl start apache2
+          sudo systemctl start mysql
+
+      - name: Set Up MySQL Database
+        run: |
+          echo "🛠️ Setting up MySQL database..."
+          sudo mysql -e "CREATE DATABASE laravel_test_db;"
+          sudo mysql -e "CREATE USER 'laravel'@'localhost' IDENTIFIED BY 'LaravelPass';"
+          sudo mysql -e "GRANT ALL PRIVILEGES ON laravel_test_db.* TO 'laravel'@'localhost';"
+          sudo mysql -e "FLUSH PRIVILEGES;"
+
+      - name: Install Laravel Dependencies
+        run: |
+          echo "📦 Installing Laravel dependencies..."
+          composer install --no-dev --optimize-autoloader
+          cp .env.example .env
+          sed -i 's/DB_DATABASE=.*/DB_DATABASE=laravel_test_db/' .env
+          sed -i 's/DB_USERNAME=.*/DB_USERNAME=laravel/' .env
+          sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=LaravelPass/' .env
+          php artisan key:generate
+          php artisan migrate --force
+
+      - name: Run Laravel Tests (Unit & Feature)
+        run: |
+          echo "🧪 Running Laravel tests..."
+          php artisan test --env=testing --stop-on-failure
+        continue-on-error: true
+
+      - name: Run PHP Syntax Check
+        run: |
+          echo "✅ Checking PHP Syntax..."
+          find . -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - name: Run PHPStan (Static Analysis)
+        run: |
+          echo "🔍 Running PHPStan for static analysis..."
+          vendor/bin/phpstan analyse --memory-limit=1G --level=max
+        continue-on-error: true
+
+      - name: Run PHP CodeSniffer (PSR-12 Standard)
+        run: |
+          echo "🎯 Checking PHP Code Style (PSR-12)..."
+          vendor/bin/phpcs --standard=PSR12 app/ routes/ database/
+        continue-on-error: true
+
+      - name: Run Laravel Pint (Code Formatting)
+        run: |
+          echo "🎨 Checking Laravel Code Formatting..."
+          vendor/bin/pint --test
+
+      - name: Run PHP Insights (Code Quality & Security)
+        run: |
+          echo "📊 Running PHP Insights for code quality & security checks..."
+          vendor/bin/phpinsights --no-interaction --format=console --ansi
+
+      - name: Run Composer Audit (Dependency Security)
+        run: |
+          echo "🛡️ Checking for security vulnerabilities in dependencies..."
+          composer audit
+
+      - name: Cleanup Server
+        run: |
+          echo "🧹 Cleaning up the server..."
+          sudo systemctl stop apache2
+          sudo systemctl stop mysql
+          sudo apt remove --purge -y apache2 mysql-server php libapache2-mod-php php-mysql php-xml php-mbstring php-bcmath php-curl php-tokenizer php-zip php-pcov php-cli unzip curl git composer
+          sudo rm -rf /var/lib/mysql /var/www/html/* /etc/mysql
+          echo "✅ Cleanup complete!"
