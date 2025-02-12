@@ -1,6 +1,6 @@
 name: CI/CD Pipeline
 
-on: 
+on:
   push:
     branches:
       - main  # Sirf 'main' branch pe push hone pe deploy hoga
@@ -27,6 +27,15 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Install System Dependencies
+        run: |
+          apt-get update
+          apt-get install -y libpng-dev libjpeg-dev libfreetype6-dev zip unzip git
+
+      - name: Install PHP Extensions
+        run: |
+          docker-php-ext-install pdo pdo_mysql  # ✅ Fixed
+
       - name: Install Composer Dependencies
         run: composer install --no-scripts --no-interaction --prefer-dist
 
@@ -39,10 +48,10 @@ jobs:
           php artisan db:seed --force
 
       - name: Run Pest Tests
-        run: vendor/bin/pest --testdox --colors=always  # ✅ Pest use ho raha hai
+        run: vendor/bin/pest --testdox --colors=always
 
   deploy:
-    needs: phpunit  # ✅ Ye tab chalega jab Pest tests pass ho jaye
+    needs: phpunit
     runs-on: ubuntu-latest
 
     steps:
@@ -62,4 +71,4 @@ jobs:
             php artisan route:clear
             php artisan view:clear
             php artisan queue:restart
-            systemctl restart apache2 || systemctl restart nginx  # ⚡ Apache/Nginx restart karein
+            systemctl restart apache2 || systemctl restart nginx
