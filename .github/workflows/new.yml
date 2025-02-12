@@ -3,13 +3,13 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # Sirf `main` branch pe push hone pe chalega
+      - main  # Only trigger on push to main branch
 
 jobs:
   phpunit:
     runs-on: ubuntu-latest
     container:
-      image: php:8.1-cli  # PHP 8.1 container use karein
+      image: php:8.1-cli  # Use PHP 8.1 container
 
     services:
       mysql:
@@ -20,7 +20,7 @@ jobs:
           MYSQL_USER: testuser
           MYSQL_PASSWORD: testpass
         ports:
-          - 33306:3306
+          - 33306:3306  # Exposing port 33306 for MySQL
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
@@ -36,7 +36,9 @@ jobs:
 
       - name: Install PHP Extensions
         run: |
-          docker-php-ext-install pdo pdo_mysql
+          apt-get update
+          apt-get install -y libmysqlclient-dev
+          docker-php-ext-install pdo pdo_mysql  # Manually install PHP extensions
 
       - name: Install Composer Dependencies
         run: |
@@ -48,13 +50,13 @@ jobs:
         run: |
           cp .env.ci .env
           php artisan key:generate
-          php artisan migrate --force  # Migrations run karega
+          php artisan migrate --force  # Run migrations
 
       - name: Run Testsuite
-        run: ./vendor/bin/pest  # Pest use kar rahe hain PHPUnit ki jagah
+        run: ./vendor/bin/pest  # Use Pest instead of PHPUnit
 
   deploy:
-    needs: phpunit  # Sirf jab tests pass ho tab deploy chalega
+    needs: phpunit  # Only deploy if tests pass
     runs-on: ubuntu-latest
 
     steps:
@@ -71,10 +73,9 @@ jobs:
             cd /var/www/html/your_project
             git pull origin main
             composer install --no-dev --optimize-autoloader
-            php artisan migrate --force  # Existing DB delete nahi hoga, sirf update hoga
+            php artisan migrate --force  # Only updates the DB, no data loss
             php artisan config:clear
             php artisan cache:clear
             php artisan route:cache
             php artisan view:cache
-            sudo systemctl restart apache2  # Ya Nginx restart karein
-
+            sudo systemctl restart apache2  # Or restart Nginx
