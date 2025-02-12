@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on: 
   push:
     branches:
-      - main  # Sirf 'main' branch push hone pe deploy hoga
+      - main  # Sirf 'main' branch pe push hone pe deploy hoga
 
 jobs:
   phpunit:
@@ -38,11 +38,11 @@ jobs:
           php artisan migrate --force
           php artisan db:seed --force
 
-      - name: Run PHPUnit Tests
-        run: vendor/bin/phpunit --testdox --colors=always
+      - name: Run Pest Tests
+        run: vendor/bin/pest --testdox --colors=always  # ✅ Pest use ho raha hai
 
   deploy:
-    needs: phpunit  # Ye tab chalega jab PHPUnit pass ho jaye
+    needs: phpunit  # ✅ Ye tab chalega jab Pest tests pass ho jaye
     runs-on: ubuntu-latest
 
     steps:
@@ -53,7 +53,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/myproject  # ⚡ Yahan apna project path update karein
+            cd /var/www/myproject  # ⚡ Apna project path update karein
             git pull origin main  # ⚡ Latest code pull karein
             composer install --no-interaction --prefer-dist --no-dev
             php artisan migrate --force  # ⚡ Database update bina data loss ke
